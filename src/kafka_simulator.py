@@ -70,6 +70,30 @@ def start_simulation(dry_run=False, max_steps=None):
             # Generate N rows
             synth_data = model.sample(num_patients)
             
+            # --- START CORRELATION STEERING ---
+            # 1. Enforce physical bounds for SpO2
+            synth_data['spo2'] = synth_data['spo2'].clip(upper=100.0, lower=50.0)
+            
+            # 2. Blood Pressure Correlation: Systolic must be strictly greater than Diastolic
+            # Typical pulse pressure is 30-50 mmHg. Force minimum pulse pressure of 10.
+            invalid_bp = synth_data['systolic_bp'] < (synth_data['diastolic_bp'] + 10)
+            synth_data.loc[invalid_bp, 'systolic_bp'] = synth_data.loc[invalid_bp, 'diastolic_bp'] + 15
+            
+            # 3. Baroreflex (Heart Rate & Blood Pressure Inverse Correlation)
+            # Hypotension (systolic < 90) leads to compensatory tachycardia (increased HR).
+            hypotensive = synth_data['systolic_bp'] < 90
+            synth_data.loc[hypotensive, 'heart_rate'] += (90 - synth_data.loc[hypotensive, 'systolic_bp']) * 0.5
+            
+            # 4. Hypoxia-induced Tachycardia (SpO2 & Heart Rate Inverse Correlation)
+            # Hypoxia (SpO2 < 92%) typically leads to increased Heart Rate.
+            hypoxic = synth_data['spo2'] < 92
+            synth_data.loc[hypoxic, 'heart_rate'] += (92 - synth_data.loc[hypoxic, 'spo2']) * 1.5
+            
+            # 5. Clip HR to reasonable clinical limits
+            synth_data['heart_rate'] = synth_data['heart_rate'].clip(lower=30.0, upper=200.0)
+            # --- END CORRELATION STEERING ---
+            
+            batch_records = []
             for i, p in enumerate(patients):
                 row = synth_data.iloc[i]
                 
@@ -120,10 +144,16 @@ def start_simulation(dry_run=False, max_steps=None):
                     "model": "CTGAN"
                 }
                 
+                batch_records.append(record)
+                
                 if dry_run:
                     print(f"[Simulation] JSON emitted: {json.dumps(record)}")
                 else:
                     producer.send(KAFKA_TOPIC, value=record)
+                    
+            # Save the batched records to a CSV file for static training usage
+            csv_path = os.path.join(os.path.dirname(__file__), '../data/kafka_streaming_data.csv')
+            pd.DataFrame(batch_records).to_csv(csv_path, mode='a', header=not os.path.exists(csv_path), index=False)
                     
             time.sleep(1.0)
             steps += 1

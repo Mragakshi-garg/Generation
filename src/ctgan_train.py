@@ -159,6 +159,11 @@ def train_ctgan(df, epochs=300):
             print(f"Final Model saved to {MODEL_PATH}")
             final_synth_df = synth_df
             
+            # # Save the generated synthetic data to a CSV file for future use
+            # synth_data_path = os.path.join(os.path.dirname(__file__), '../data/synthetic_vitals.csv')
+            # final_synth_df.to_csv(synth_data_path, index=False)
+            # print(f"Synthetic data saved to {synth_data_path}")
+            
     # Add back mean_bp to real_df just for the evaluation plots
     eval_df = df[train_cols + ['mean_bp']].copy()
     
