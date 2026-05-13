@@ -1,6 +1,7 @@
 import os
 import time
 import random
+import shutil
 import torch
 import pandas as pd
 import numpy as np
@@ -157,13 +158,25 @@ def train_ctgan(df, epochs=300):
         if ep == epochs:
             ctgan.save(MODEL_PATH)
             print(f"Final Model saved to {MODEL_PATH}")
-            final_synth_df = synth_df
             
             # # Save the generated synthetic data to a CSV file for future use
             # synth_data_path = os.path.join(os.path.dirname(__file__), '../data/synthetic_vitals.csv')
             # final_synth_df.to_csv(synth_data_path, index=False)
             # print(f"Synthetic data saved to {synth_data_path}")
             
+            
+            # adding output model file to icu direct copy
+            ICU_MODEL_PATH = os.path.join(os.path.dirname(__file__), '../../icu/data/ctgan_model.pkl')
+            if os.path.exists(os.path.dirname(ICU_MODEL_PATH)):
+                shutil.copy(MODEL_PATH, ICU_MODEL_PATH)
+                print(f"Model also copied to ICU folder at {ICU_MODEL_PATH}")
+            else:
+                print(f"ICU folder not found at {ICU_MODEL_PATH} — skipping copy")
+    
+
+            final_synth_df = synth_df
+            
+
     # Add back mean_bp to real_df just for the evaluation plots
     eval_df = df[train_cols + ['mean_bp']].copy()
     

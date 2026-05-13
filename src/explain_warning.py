@@ -47,7 +47,8 @@ def main():
     warning_idx = df[df['warning'] == 1].index
     for i in warning_idx:
         vals = shap_vals[i]
-        top_feature_idx = np.argmax(np.abs(vals))
+        to
+        p_feature_idx = np.argmax(np.abs(vals))
         df.loc[i, 'top_trigger'] = features[top_feature_idx]
         df.loc[i, 'trigger_value'] = X.iloc[i][features[top_feature_idx]]
 
